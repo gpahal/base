@@ -1,0 +1,54 @@
+# Build output
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+build
+dist
+target
+out
+.output
+
+# Temporary files
+tmp
+.tmp
+.cache
+.eslintcache
+tsconfig.tsbuildinfo
+
+# Go
+/vendor
+
+# Environment variables
+.env
+.env.*
+
+# Editors
+
+## VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history
+*.code-workspace
+
+## JetBrains
+.idea
+.idea_modules
+*.iml
+*.ipr
+*.iws
+
+# OS
+
+## Linux
+*~
+.Trash-*
+
+## MacOS
+.DS_Store
+._*
+
