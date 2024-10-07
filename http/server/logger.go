@@ -3,10 +3,24 @@ package server
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
 )
+
+func newLogger(w io.Writer) *zerolog.Logger {
+	loggerStruct := zerolog.New(
+		zerolog.ConsoleWriter{
+			Out:        w,
+			TimeFormat: time.RFC822,
+		},
+	).
+		With().
+		Timestamp().
+		Logger()
+	return &loggerStruct
+}
 
 type gommonLogger struct {
 	logger *zerolog.Logger

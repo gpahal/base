@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -13,11 +14,21 @@ import (
 )
 
 type ServerOptions struct {
-	Logger       *zerolog.Logger
 	LoggerWriter io.Writer
+	Logger       *zerolog.Logger
 }
 
-func NewServer(opts ServerOptions) *echo.Echo {
+func NewServer(opts *ServerOptions) *echo.Echo {
+	if opts == nil {
+		opts = &ServerOptions{}
+	}
+	if opts.LoggerWriter == nil {
+		opts.LoggerWriter = os.Stdout
+	}
+	if opts.Logger == nil {
+		opts.Logger = newLogger(opts.LoggerWriter)
+	}
+
 	e := echo.New()
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
 	e.Logger.SetLevel(log.ERROR)
