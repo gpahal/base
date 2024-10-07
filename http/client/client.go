@@ -23,20 +23,31 @@ const (
 
 type Client struct {
 	client    *http.Client
-	retryOpts *retry.RetryOptions
+	baseUrl   *url.URL
 	header    http.Header
+	retryOpts *retry.RetryOptions
 }
 
 type ClientOptions struct {
-	BaseURL   string
-	Timeout   time.Duration
-	RetryOpts *retry.RetryOptions
-	Header    http.Header
+	BaseUrl       *url.URL
+	BaseUrlString string
+	Timeout       time.Duration
+	Header        http.Header
+	RetryOpts     *retry.RetryOptions
 }
 
-func NewClient(opts *ClientOptions) *Client {
+func NewClient(opts *ClientOptions) (*Client, error) {
 	if opts == nil {
 		opts = &ClientOptions{}
+	}
+
+	baseUrl := opts.BaseUrl
+	if baseUrl == nil && opts.BaseUrlString != "" {
+		var err error
+		baseUrl, err = url.Parse(opts.BaseUrlString)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	timeout := opts.Timeout
@@ -56,15 +67,25 @@ func NewClient(opts *ClientOptions) *Client {
 		Jar: cookieJar,
 	}
 
-	return &Client{client: httpClient, retryOpts: opts.RetryOpts, header: opts.Header}
+	return &Client{client: httpClient, baseUrl: baseUrl, header: opts.Header, retryOpts: opts.RetryOpts}, nil
 }
 
 type Request struct {
 	*http.Request
 }
 
-func (c *Client) NewRequest(method, url string) (*Request, error) {
-	httpReq, err := http.NewRequest(method, url, nil)
+func (c *Client) NewRequest(method, urlString string) (*Request, error) {
+	url, err := url.Parse(urlString)
+	if err != nil {
+		return nil, err
+	}
+
+	fullURL := url.String()
+	if c.baseUrl != nil {
+		fullURL = c.baseUrl.ResolveReference(url).String()
+	}
+
+	httpReq, err := http.NewRequest(method, fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
