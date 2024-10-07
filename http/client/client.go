@@ -63,14 +63,14 @@ type Request struct {
 	*http.Request
 }
 
-func (c *Client) NewRequest(method, url string, body io.Reader) (*Request, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c *Client) NewRequest(method, url string) (*Request, error) {
+	httpReq, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header = c.header
-	return &Request{Request: req}, nil
+	httpReq.Header = c.header
+	return &Request{Request: httpReq}, nil
 }
 
 func (req *Request) GetHttpRequest() *http.Request {
@@ -129,7 +129,7 @@ func (req *Request) SetBody(body io.Reader) {
 	}
 }
 
-func (req *Request) WithJsonBody(body any) error {
+func (req *Request) SetJsonBody(body any) error {
 	req.Header.Set("Content-Type", "application/json")
 	bs, err := json.Marshal(body)
 	if err != nil {
