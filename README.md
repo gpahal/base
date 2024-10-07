@@ -4,10 +4,9 @@ This is a collection of go libraries that I use in my projects.
 
 ## Packages
 
-- [log](/log)
 - [random](/random)
 - [retry](/retry)
-- [web](/web)
+- [http](/http)
 
 ## License
 

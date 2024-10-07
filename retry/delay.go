@@ -48,10 +48,10 @@ func ExponentialBackoffDelayer(coefficient int) Delayer {
 	})
 }
 
-func RandomDelayer(maxJitter time.Duration) Delayer {
+func RandomDelayer(minDelay time.Duration, maxJitter time.Duration) Delayer {
 	rnd := random.New()
 	return DelayerFunc(func(startTime time.Time, attempts int, err error) time.Duration {
-		return time.Duration(rnd.Int64n(int64(maxJitter)))
+		return max(minDelay, 0) + time.Duration(rnd.Int64n(int64(maxJitter)))
 	})
 }
 

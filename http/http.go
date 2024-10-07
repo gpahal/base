@@ -60,19 +60,19 @@ const (
 	MIMEApplicationXML                   = "application/xml"
 	MIMEApplicationXMLCharsetUTF8        = MIMEApplicationXML + charsetUTF8WithSep
 	MIMETextXML                          = "text/xml"
-	MIMETextXMLCharsetUTF8               = MIMETextXML+ charsetUTF8WithSep
+	MIMETextXMLCharsetUTF8               = MIMETextXML + charsetUTF8WithSep
 	MIMEApplicationForm                  = "application/x-www-form-urlencoded"
 	MIMEApplicationProtobuf              = "application/protobuf"
 	MIMEApplicationMsgpack               = "application/msgpack"
 	MIMETextHTML                         = "text/html"
-	MIMETextHTMLCharsetUTF8              = MIMETextHTML+ charsetUTF8WithSep
+	MIMETextHTMLCharsetUTF8              = MIMETextHTML + charsetUTF8WithSep
 	MIMETextPlain                        = "text/plain"
-	MIMETextPlainCharsetUTF8             = MIMETextPlain+ charsetUTF8WithSep
+	MIMETextPlainCharsetUTF8             = MIMETextPlain + charsetUTF8WithSep
 	MIMEMultipartForm                    = "multipart/form-data"
 	MIMEOctetStream                      = "application/octet-stream"
 )
 
 const (
-	charsetUTF8 = "charset=UTF-8"
+	charsetUTF8        = "charset=UTF-8"
 	charsetUTF8WithSep = "; " + charsetUTF8
 )

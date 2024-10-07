@@ -31,3 +31,25 @@ func DeadlineStopper(deadline time.Time) Stopper {
 		return time.Now().After(deadline)
 	})
 }
+
+func AnyStopper(stoppers ...Stopper) Stopper {
+	return StopperFunc(func(startTime time.Time, attempts int, err error) bool {
+		for _, stopper := range stoppers {
+			if stopper.Stop(startTime, attempts, err) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func AllStoppers(stoppers ...Stopper) Stopper {
+	return StopperFunc(func(startTime time.Time, attempts int, err error) bool {
+		for _, stopper := range stoppers {
+			if !stopper.Stop(startTime, attempts, err) {
+				return false
+			}
+		}
+		return true
+	})
+}
