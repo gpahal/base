@@ -150,7 +150,7 @@ func (req *Request) SetBody(body io.Reader) {
 	}
 }
 
-func (req *Request) SetJsonBody(body any) error {
+func (req *Request) SetBodyJson(body any) error {
 	req.Header.Set("Content-Type", "application/json")
 	bs, err := json.Marshal(body)
 	if err != nil {
@@ -161,7 +161,7 @@ func (req *Request) SetJsonBody(body any) error {
 	return nil
 }
 
-func (req *Request) SetFormBody(data url.Values) {
+func (req *Request) SetBodyForm(data url.Values) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBody(strings.NewReader(data.Encode()))
 }
@@ -174,7 +174,7 @@ func (resp *Response) GetHttpResponse() *http.Response {
 	return resp.Response
 }
 
-func (resp *Response) GetStringBody() (string, error) {
+func (resp *Response) GetBodyString() (string, error) {
 	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -182,7 +182,7 @@ func (resp *Response) GetStringBody() (string, error) {
 	return string(bs), nil
 }
 
-func (resp *Response) BindJsonBody(v any) error {
+func (resp *Response) BindBodyJson(v any) error {
 	err := json.NewDecoder(resp.Body).Decode(v)
 	if err == nil {
 		return nil
