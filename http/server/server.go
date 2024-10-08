@@ -18,7 +18,11 @@ type Options struct {
 	Logger       *zerolog.Logger
 }
 
-func New(opts Options) *echo.Echo {
+func New() *echo.Echo {
+	return NewWithOptions(Options{})
+}
+
+func NewWithOptions(opts Options) *echo.Echo {
 	if opts.LoggerWriter == nil {
 		opts.LoggerWriter = os.Stdout
 	}
