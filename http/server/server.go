@@ -76,3 +76,8 @@ func NewWithOptions(opts Options) *echo.Echo {
 
 	return e
 }
+
+func AddGroup(e *echo.Echo, path string, routerFn func(g *echo.Group)) {
+	g := e.Group(path)
+	routerFn(g)
+}
