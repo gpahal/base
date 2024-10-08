@@ -1,9 +1,12 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -77,7 +80,56 @@ func NewWithOptions(opts Options) *echo.Echo {
 	return e
 }
 
-func AddRouter(e *echo.Echo, path string, routerFn func(g *echo.Group)) {
-	g := e.Group(path)
-	routerFn(g)
+type StartOptions struct {
+	GracefulShutdownTimeout time.Duration
+}
+
+func Start(e *echo.Echo, port int) error {
+	return StartWithOptions(e, port, StartOptions{
+		GracefulShutdownTimeout: 10 * time.Second,
+	})
+}
+
+func StartWithOptions(e *echo.Echo, port int, opts StartOptions) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+
+		ctx, cancel := context.WithTimeout(context.Background(), opts.GracefulShutdownTimeout)
+		defer cancel()
+
+		if err := e.Shutdown(ctx); err != nil {
+			e.Logger.Fatal(err)
+		}
+	}()
+
+	if err := e.Start(fmt.Sprintf(":%d", port)); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+
+	return nil
+}
+
+type Router interface {
+	Group(prefix string, m ...echo.MiddlewareFunc) *echo.Group
+	Use(middleware ...echo.MiddlewareFunc)
+	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	Any(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) []*echo.Route
+	Match(methods []string, path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) []*echo.Route
+	Add(method, path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) *echo.Route
+}
+
+func AddSubRouter(r Router, path string, subRouterFn func(r Router)) {
+	sr := r.Group(path)
+	subRouterFn(sr)
 }
