@@ -13,15 +13,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type ServerOptions struct {
+type Options struct {
 	LoggerWriter io.Writer
 	Logger       *zerolog.Logger
 }
 
-func NewServer(opts *ServerOptions) *echo.Echo {
-	if opts == nil {
-		opts = &ServerOptions{}
-	}
+func New(opts Options) *echo.Echo {
 	if opts.LoggerWriter == nil {
 		opts.LoggerWriter = os.Stdout
 	}
@@ -31,9 +28,15 @@ func NewServer(opts *ServerOptions) *echo.Echo {
 
 	e := echo.New()
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
-	e.Logger.SetLevel(log.ERROR)
+	e.Logger.SetLevel(log.INFO)
 	e.Pre(middleware.RemoveTrailingSlash())
-	e.Use(middleware.Recover())
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		StackSize: 4 << 10,
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			opts.Logger.Error().Err(err).Str("stack", string(stack)).Msg("panic recovered")
+			return nil
+		},
+	}))
 	e.Use(middleware.RequestID())
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Skipper: middleware.DefaultSkipper,
@@ -52,12 +55,16 @@ func NewServer(opts *ServerOptions) *echo.Echo {
 			if v.Error != nil {
 				evt = opts.Logger.Error()
 			}
-			evt.
-				Int("status", v.Status).
-				Err(v.Error).
-				Str("latency", v.Latency.String()).
-				Str("size", humanize.Bytes(uint64(v.ResponseSize))).
-				Msg(fmt.Sprintf("%s %s", v.Method, v.URI))
+
+			evt = evt.Int("status", v.Status).Err(v.Error).Str("latency", v.Latency.String())
+			if v.RequestID != "" {
+				evt = evt.Str("request_id", v.RequestID)
+			}
+			if v.ResponseSize > 0 {
+				evt = evt.Str("size", humanize.Bytes(uint64(v.ResponseSize)))
+			}
+
+			evt.Msg(fmt.Sprintf("%s %s", v.Method, v.URI))
 			return nil
 		},
 	}))

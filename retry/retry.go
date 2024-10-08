@@ -11,22 +11,14 @@ var (
 
 type RetryableFunc func() error
 
-type RetryOptions struct {
-	Fn      RetryableFunc
+type Options struct {
 	Delayer Delayer
 	Stopper Stopper
 }
 
-func Do(fn RetryableFunc, opts *RetryOptions) error {
+func Do(fn RetryableFunc, opts Options) error {
 	if fn == nil {
 		return nil
-	}
-	if opts == nil {
-		err := fn()
-		if err == nil || err == ErrStop {
-			return nil
-		}
-		return err
 	}
 
 	startTime := time.Now()

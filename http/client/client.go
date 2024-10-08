@@ -25,22 +25,22 @@ type Client struct {
 	client    *http.Client
 	baseUrl   *url.URL
 	header    http.Header
-	retryOpts *retry.RetryOptions
+	retryOpts retry.Options
 }
 
-type ClientOptions struct {
+type Options struct {
 	BaseUrl       *url.URL
 	BaseUrlString string
 	Timeout       time.Duration
 	Header        http.Header
-	RetryOpts     *retry.RetryOptions
+	RetryOpts     retry.Options
 }
 
-func NewClient(opts *ClientOptions) (*Client, error) {
-	if opts == nil {
-		opts = &ClientOptions{}
-	}
+func New() (*Client, error) {
+	return NewWithOptions(Options{})
+}
 
+func NewWithOptions(opts Options) (*Client, error) {
 	baseUrl := opts.BaseUrl
 	if baseUrl == nil && opts.BaseUrlString != "" {
 		var err error
@@ -74,7 +74,7 @@ type Request struct {
 	*http.Request
 }
 
-func (c *Client) NewRequest(method, urlString string) (*Request, error) {
+func (c Client) NewRequest(method, urlString string) (*Request, error) {
 	url, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (c *Client) NewRequest(method, urlString string) (*Request, error) {
 	return &Request{Request: httpReq}, nil
 }
 
-func (req *Request) GetHttpRequest() *http.Request {
+func (req Request) GetHttpRequest() *http.Request {
 	return req.Request
 }
 
@@ -170,11 +170,11 @@ type Response struct {
 	*http.Response
 }
 
-func (resp *Response) GetHttpResponse() *http.Response {
+func (resp Response) GetHttpResponse() *http.Response {
 	return resp.Response
 }
 
-func (resp *Response) GetBodyString() (string, error) {
+func (resp Response) GetBodyString() (string, error) {
 	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -182,7 +182,7 @@ func (resp *Response) GetBodyString() (string, error) {
 	return string(bs), nil
 }
 
-func (resp *Response) BindBodyJson(v any) error {
+func (resp Response) BindBodyJson(v any) error {
 	err := json.NewDecoder(resp.Body).Decode(v)
 	if err == nil {
 		return nil
@@ -196,7 +196,7 @@ func (resp *Response) BindBodyJson(v any) error {
 	return err
 }
 
-func (c *Client) Do(req *Request) (*Response, error) {
+func (c Client) Do(req *Request) (*Response, error) {
 	var resp *Response
 	err := retry.Do(func() error {
 		httpResp, err := c.client.Do(req.Request)
