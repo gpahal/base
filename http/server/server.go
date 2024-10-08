@@ -31,6 +31,7 @@ func NewWithOptions(opts Options) *echo.Echo {
 	}
 
 	e := echo.New()
+	e.HideBanner = true
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
 	e.Logger.SetLevel(log.INFO)
 	e.Pre(middleware.RemoveTrailingSlash())
