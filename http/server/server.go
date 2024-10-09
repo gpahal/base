@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -39,8 +40,10 @@ func NewWithOptions(opts Options) *echo.Echo {
 	e.Logger.SetLevel(log.INFO)
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		StackSize: 4 << 10,
-		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+		StackSize:         4 << 10,
+		DisablePrintStack: true,
+		LogErrorFunc: func(c echo.Context, err error, _ []byte) error {
+			stack := string(debug.Stack())
 			opts.Logger.Error().Msgf("panic recovered: %v\n%s\n", err, stack)
 			return nil
 		},
