@@ -41,7 +41,7 @@ func NewWithOptions(opts Options) *echo.Echo {
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		StackSize: 4 << 10,
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
-			opts.Logger.Error().Err(err).Str("stack", string(stack)).Msg("panic recovered")
+			opts.Logger.Error().Msgf("panic recovered: %v\n%s\n", err, stack)
 			return nil
 		},
 	}))
