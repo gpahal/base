@@ -57,6 +57,19 @@ func NewWithOptions(opts Options) *echo.Echo {
 		Timeout: 60 * time.Second,
 	}))
 
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+			loggerBuilder := opts.Logger.With().Str("method", c.Request().Method).Str("uri", c.Request().RequestURI)
+			if requestId != "" {
+				loggerBuilder = loggerBuilder.Str("request_id", requestId)
+			}
+			logger := loggerBuilder.Logger()
+			actx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLoggerWriter: opts.LoggerWriter, ServerLogger: &logger}
+			return next(actx)
+		}
+	})
+
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogMethod:       true,
 		LogURI:          true,
@@ -65,9 +78,10 @@ func NewWithOptions(opts Options) *echo.Echo {
 		LogLatency:      true,
 		LogResponseSize: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			evt := opts.Logger.Info()
+			ac := c.(*Context)
+			evt := ac.ServerLogger.Info()
 			if v.Error != nil {
-				evt = opts.Logger.Error()
+				evt = ac.ServerLogger.Error()
 			}
 
 			evt = evt.Int("status", v.Status).Err(v.Error).Str("latency", v.Latency.String())
@@ -78,23 +92,10 @@ func NewWithOptions(opts Options) *echo.Echo {
 				evt = evt.Str("size", humanize.Bytes(uint64(v.ResponseSize)))
 			}
 
-			evt.Msg(fmt.Sprintf("%s %s", v.Method, v.URI))
+			evt.Msg("request")
 			return nil
 		},
 	}))
-
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			requestId := c.Request().Header.Get(echo.HeaderXRequestID)
-			loggerBuilder := opts.Logger.With().Str("method", c.Request().Method).Str("path", c.Request().URL.Path)
-			if requestId != "" {
-				loggerBuilder = loggerBuilder.Str("request_id", requestId)
-			}
-			logger := loggerBuilder.Logger()
-			actx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLogger: &logger}
-			return next(actx)
-		}
-	})
 
 	return e
 }
