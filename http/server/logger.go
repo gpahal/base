@@ -71,6 +71,24 @@ func (l gommonLogger) SetHeader(header string) {
 	// Unsupported
 }
 
+type GommonLoggerContextUpdate struct {
+	*zerolog.Context
+	l *gommonLogger
+}
+
+func (l *gommonLogger) With() *GommonLoggerContextUpdate {
+	ctx := l.logger.With()
+	return &GommonLoggerContextUpdate{
+		Context: &ctx,
+		l:       l,
+	}
+}
+
+func (u *GommonLoggerContextUpdate) Update() {
+	newLogger := u.Context.Logger()
+	u.l.logger = &newLogger
+}
+
 func (l gommonLogger) Debug(i ...interface{}) {
 	l.logger.Debug().Msg(fmt.Sprint(i...))
 }

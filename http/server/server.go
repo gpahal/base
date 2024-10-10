@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -18,8 +19,10 @@ import (
 )
 
 type Options struct {
+	Validator    *validator.Validate
 	LoggerWriter io.Writer
 	Logger       *zerolog.Logger
+	Config       any
 }
 
 func New() *echo.Echo {
@@ -79,6 +82,19 @@ func NewWithOptions(opts Options) *echo.Echo {
 			return nil
 		},
 	}))
+
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+			loggerBuilder := opts.Logger.With().Str("method", c.Request().Method).Str("path", c.Request().URL.Path)
+			if requestId != "" {
+				loggerBuilder = loggerBuilder.Str("request_id", requestId)
+			}
+			logger := loggerBuilder.Logger()
+			actx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLogger: &logger}
+			return next(actx)
+		}
+	})
 
 	return e
 }
