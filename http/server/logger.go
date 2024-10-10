@@ -12,8 +12,9 @@ import (
 func newLogger(w io.Writer) *zerolog.Logger {
 	loggerStruct := zerolog.New(
 		zerolog.ConsoleWriter{
-			Out:        w,
-			TimeFormat: time.RFC822,
+			Out:         w,
+			TimeFormat:  time.RFC822,
+			FieldsOrder: []string{"status", "method", "uri", "error", "request_id", "latency", "size"},
 		},
 	).
 		With().
