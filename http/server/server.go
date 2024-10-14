@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type OnHttpErrorHandler func(err *echo.HTTPError, c echo.Context)
+type OnHttpErrorHandler func(c echo.Context, err *echo.HTTPError)
 
 type Options struct {
 	Validator    *validator.Validate
@@ -44,18 +44,12 @@ func NewWithOptions(opts Options) *echo.Echo {
 	e.HideBanner = true
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
 	e.Logger.SetLevel(log.INFO)
-	e.HTTPErrorHandler = createErrorHandler(e, opts.OnHttpError)
+	e.HTTPErrorHandler = newErrorHandler(e, opts.Logger, opts.OnHttpError)
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.RequestID())
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			requestId := c.Request().Header.Get(echo.HeaderXRequestID)
-			loggerBuilder := opts.Logger.With().Str("method", c.Request().Method).Str("uri", c.Request().RequestURI)
-			if requestId != "" {
-				loggerBuilder = loggerBuilder.Str("request_id", requestId)
-			}
-			logger := loggerBuilder.Logger()
-			sctx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLoggerWriter: opts.LoggerWriter, ServerLogger: &logger}
+			sctx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLoggerWriter: opts.LoggerWriter, ServerLogger: newContextLogger(c, opts.Logger)}
 			return next(sctx)
 		}
 	})
@@ -167,7 +161,7 @@ func AddSubRouter(r Router, path string, subRouterFn func(r Router)) {
 	subRouterFn(sr)
 }
 
-func createErrorHandler(e *echo.Echo, onHttpError OnHttpErrorHandler) echo.HTTPErrorHandler {
+func newErrorHandler(e *echo.Echo, logger *zerolog.Logger, onHttpError OnHttpErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		if c.Response().Committed {
 			return
@@ -185,7 +179,7 @@ func createErrorHandler(e *echo.Echo, onHttpError OnHttpErrorHandler) echo.HTTPE
 		}
 
 		if onHttpError != nil {
-			onHttpError(he, c)
+			onHttpError(c, he)
 		}
 
 		code := he.Code
@@ -210,9 +204,19 @@ func createErrorHandler(e *echo.Echo, onHttpError OnHttpErrorHandler) echo.HTTPE
 			err = c.JSON(code, message)
 		}
 
-		sctx := c.(*Context)
+		logger = newContextLogger(c, logger)
 		if err != nil {
-			sctx.ServerLogger.Error().Err(err).Msg("error handler")
+			logger.Error().Err(err).Msg("error handler")
 		}
 	}
+}
+
+func newContextLogger(c echo.Context, logger *zerolog.Logger) *zerolog.Logger {
+	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+	loggerBuilder := logger.With().Str("method", c.Request().Method).Str("uri", c.Request().RequestURI)
+	if requestId != "" {
+		loggerBuilder = loggerBuilder.Str("request_id", requestId)
+	}
+	loggerStruct := loggerBuilder.Logger()
+	return &loggerStruct
 }
