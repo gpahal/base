@@ -22,9 +22,9 @@ type OnHttpErrorHandler func(c echo.Context, err *echo.HTTPError)
 
 type Options struct {
 	Validator    *validator.Validate
+	Config       any
 	LoggerWriter io.Writer
 	Logger       *zerolog.Logger
-	Config       any
 	OnHttpError  OnHttpErrorHandler
 }
 
