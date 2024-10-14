@@ -42,41 +42,7 @@ func NewWithOptions(opts Options) *echo.Echo {
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
 	e.Logger.SetLevel(log.INFO)
 	e.Pre(middleware.RemoveTrailingSlash())
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) (returnErr error) {
-			defer func() {
-				if r := recover(); r != nil {
-					if r == http.ErrAbortHandler {
-						panic(r)
-					}
-
-					err, ok := r.(error)
-					if !ok {
-						err = fmt.Errorf("%v", r)
-					}
-
-					stack := make([]byte, 4<<10)
-					length := runtime.Stack(stack, false)
-					stack = stack[:length]
-
-					opts.Logger.Error().Msgf("panic recovered: %v\n%s\n", err, stack)
-
-					if he, ok := err.(*echo.HTTPError); ok {
-						returnErr = he
-					} else {
-						returnErr = echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("panic recovered: %v", err))
-					}
-				}
-			}()
-			return next(c)
-		}
-	})
 	e.Use(middleware.RequestID())
-	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		Skipper: middleware.DefaultSkipper,
-		Timeout: 60 * time.Second,
-	}))
-
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			requestId := c.Request().Header.Get(echo.HeaderXRequestID)
@@ -89,7 +55,6 @@ func NewWithOptions(opts Options) *echo.Echo {
 			return next(actx)
 		}
 	})
-
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogMethod:       true,
 		LogURI:          true,
@@ -115,6 +80,39 @@ func NewWithOptions(opts Options) *echo.Echo {
 			evt.Msg("request")
 			return nil
 		},
+	}))
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) (returnErr error) {
+			defer func() {
+				if r := recover(); r != nil {
+					if r == http.ErrAbortHandler {
+						panic(r)
+					}
+
+					err, ok := r.(error)
+					if !ok {
+						err = fmt.Errorf("%v", r)
+					}
+
+					stack := make([]byte, 4<<10)
+					length := runtime.Stack(stack, false)
+					stack = stack[:length]
+
+					opts.Logger.Error().Msgf("panic: %v\n%s\n", err, stack)
+
+					if he, ok := err.(*echo.HTTPError); ok {
+						returnErr = he
+					} else {
+						returnErr = echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("panic recovered: %v", err))
+					}
+				}
+			}()
+			return next(c)
+		}
+	})
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Skipper: middleware.DefaultSkipper,
+		Timeout: 60 * time.Second,
 	}))
 
 	return e
