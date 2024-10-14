@@ -2,13 +2,14 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/pkg/errors"
+
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -64,7 +65,7 @@ func substituteEnvVars(value any) (any, error) {
 			if value, ok := os.LookupEnv(envVar); ok {
 				return value, nil
 			} else {
-				return nil, fmt.Errorf("environment variable %s not found", envVar)
+				return nil, errors.Errorf("environment variable %s not found", envVar)
 			}
 		}
 	case map[string]any:

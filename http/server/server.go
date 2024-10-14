@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -18,11 +18,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type OnHttpErrorHandler func(err *echo.HTTPError, c echo.Context)
+
 type Options struct {
 	Validator    *validator.Validate
 	LoggerWriter io.Writer
 	Logger       *zerolog.Logger
 	Config       any
+	OnHttpError  OnHttpErrorHandler
 }
 
 func New() *echo.Echo {
@@ -41,6 +44,7 @@ func NewWithOptions(opts Options) *echo.Echo {
 	e.HideBanner = true
 	e.Logger = newGommonLogger(opts.Logger, opts.LoggerWriter)
 	e.Logger.SetLevel(log.INFO)
+	e.HTTPErrorHandler = createErrorHandler(e, opts.OnHttpError)
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.RequestID())
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -51,8 +55,8 @@ func NewWithOptions(opts Options) *echo.Echo {
 				loggerBuilder = loggerBuilder.Str("request_id", requestId)
 			}
 			logger := loggerBuilder.Logger()
-			actx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLoggerWriter: opts.LoggerWriter, ServerLogger: &logger}
-			return next(actx)
+			sctx := &Context{Context: c, Validator: opts.Validator, ConfigRaw: opts.Config, ServerLoggerWriter: opts.LoggerWriter, ServerLogger: &logger}
+			return next(sctx)
 		}
 	})
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -63,10 +67,10 @@ func NewWithOptions(opts Options) *echo.Echo {
 		LogLatency:      true,
 		LogResponseSize: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			ac := c.(*Context)
-			evt := ac.ServerLogger.Info()
+			sctx := c.(*Context)
+			evt := sctx.ServerLogger.Info()
 			if v.Error != nil {
-				evt = ac.ServerLogger.Error()
+				evt = sctx.ServerLogger.Error()
 			}
 
 			evt = evt.Int("status", v.Status).Err(v.Error).Str("latency", v.Latency.String())
@@ -94,17 +98,8 @@ func NewWithOptions(opts Options) *echo.Echo {
 						err = fmt.Errorf("%v", r)
 					}
 
-					stack := make([]byte, 4<<10)
-					length := runtime.Stack(stack, false)
-					stack = stack[:length]
-
-					opts.Logger.Error().Msgf("panic: %v\n%s\n", err, stack)
-
-					if he, ok := err.(*echo.HTTPError); ok {
-						returnErr = he
-					} else {
-						returnErr = echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("panic recovered: %v", err))
-					}
+					opts.Logger.Error().Err(err).Msg("recovery handler")
+					returnErr = err
 				}
 			}()
 			return next(c)
@@ -112,7 +107,7 @@ func NewWithOptions(opts Options) *echo.Echo {
 	})
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Skipper: middleware.DefaultSkipper,
-		Timeout: 60 * time.Second,
+		Timeout: 30 * time.Second,
 	}))
 
 	return e
@@ -170,4 +165,54 @@ type Router interface {
 func AddSubRouter(r Router, path string, subRouterFn func(r Router)) {
 	sr := r.Group(path)
 	subRouterFn(sr)
+}
+
+func createErrorHandler(e *echo.Echo, onHttpError OnHttpErrorHandler) echo.HTTPErrorHandler {
+	return func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+
+		he, ok := err.(*echo.HTTPError)
+		if ok {
+			if he.Internal != nil {
+				if herr, ok := he.Internal.(*echo.HTTPError); ok {
+					he = herr
+				}
+			}
+		} else {
+			he = echo.NewHTTPError(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+		}
+
+		if onHttpError != nil {
+			onHttpError(he, c)
+		}
+
+		code := he.Code
+		message := he.Message
+
+		switch m := message.(type) {
+		case string:
+			if e.Debug {
+				message = echo.Map{"error": m, "description": err.Error()}
+			} else {
+				message = echo.Map{"error": m}
+			}
+		case json.Marshaler:
+			message = echo.Map{"error": m}
+		case error:
+			message = echo.Map{"error": m.Error()}
+		}
+
+		if c.Request().Method == http.MethodHead {
+			err = c.NoContent(he.Code)
+		} else {
+			err = c.JSON(code, message)
+		}
+
+		sctx := c.(*Context)
+		if err != nil {
+			sctx.ServerLogger.Error().Err(err).Msg("error handler")
+		}
+	}
 }
