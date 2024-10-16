@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -111,16 +110,13 @@ type StartOptions struct {
 	GracefulShutdownTimeout time.Duration
 }
 
-func Start(e *echo.Echo, port int) error {
-	return StartWithOptions(e, port, StartOptions{
+func Start(ctx context.Context, e *echo.Echo, port int) error {
+	return StartWithOptions(ctx, e, port, StartOptions{
 		GracefulShutdownTimeout: 10 * time.Second,
 	})
 }
 
-func StartWithOptions(e *echo.Echo, port int, opts StartOptions) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
+func StartWithOptions(ctx context.Context, e *echo.Echo, port int, opts StartOptions) error {
 	go func() {
 		<-ctx.Done()
 
