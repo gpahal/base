@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	defaultTimeout = 10 * time.Second
+	defaultTimeout = 30 * time.Second
 )
 
 type Client struct {
@@ -64,10 +65,10 @@ func NewWithOptions(opts Options) (*Client, error) {
 	httpClient := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: timeout * 3 / 4,
-			}).DialContext,
-			TLSHandshakeTimeout: timeout * 3 / 4,
+			Dial: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
 		},
 		Jar: cookieJar,
 	}
@@ -80,6 +81,10 @@ type Request struct {
 }
 
 func (c Client) NewRequest(method, urlString string) (*Request, error) {
+	return c.NewRequestWithContext(context.Background(), method, urlString)
+}
+
+func (c Client) NewRequestWithContext(ctx context.Context, method, urlString string) (*Request, error) {
 	url, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
@@ -90,7 +95,7 @@ func (c Client) NewRequest(method, urlString string) (*Request, error) {
 		fullURL = c.baseUrl.ResolveReference(url).String()
 	}
 
-	httpReq, err := http.NewRequest(method, fullURL, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, method, fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
