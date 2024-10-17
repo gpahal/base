@@ -29,11 +29,12 @@ type Client struct {
 }
 
 type Options struct {
-	BaseUrl       *url.URL
-	BaseUrlString string
-	Timeout       time.Duration
-	Header        http.Header
-	RetryOpts     retry.Options
+	BaseUrl          *url.URL
+	BaseUrlString    string
+	Timeout          time.Duration
+	Header           http.Header
+	RetryOpts        retry.Options
+	IncludeCookieJar bool
 }
 
 func New() (*Client, error) {
@@ -55,7 +56,11 @@ func NewWithOptions(opts Options) (*Client, error) {
 		timeout = defaultTimeout
 	}
 
-	cookieJar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	var cookieJar http.CookieJar
+	if opts.IncludeCookieJar {
+		cookieJar, _ = cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	}
+
 	httpClient := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
