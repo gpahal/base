@@ -25,18 +25,15 @@ func Do(fn RetryableFunc, opts Options) error {
 	attempts := 0
 	for {
 		err := fn()
-		if err == nil || err == ErrStop {
+		if err == nil || err == ErrStop || opts.Stopper == nil || opts.Delayer == nil {
 			return err
 		}
 
 		attempts += 1
-		if opts.Stopper != nil && opts.Stopper.Stop(startTime, attempts, err) {
+		if opts.Stopper.Stop(startTime, attempts, err) {
 			return err
 		}
 
-		if opts.Delayer == nil {
-			continue
-		}
 		d := opts.Delayer.Delay(startTime, attempts, err)
 		if d.Nanoseconds() > 0 {
 			time.Sleep(d)
