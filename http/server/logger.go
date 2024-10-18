@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
@@ -13,7 +12,7 @@ func newLogger(w io.Writer) *zerolog.Logger {
 	loggerStruct := zerolog.New(
 		zerolog.ConsoleWriter{
 			Out:         w,
-			TimeFormat:  time.RFC822,
+			TimeFormat:  "02 Jan 06 15:04:05 MST",
 			FieldsOrder: []string{"status", "method", "uri", "error", "request_id", "latency", "size"},
 		},
 	).
